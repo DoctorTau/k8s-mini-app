@@ -130,7 +130,7 @@ spec:
     app: pgadmin
 
 ---
-# Ingress for pgAdmin
+# Ingress
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -148,3 +148,73 @@ spec:
                 name: pgadmin
                 port:
                   number: 80
+---
+# Deployment for hero-api (adjust as needed)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hero-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hero-api
+  template:
+    metadata:
+      labels:
+        app: hero-api
+    spec:
+      containers:
+        - name: hero-api
+          image: drtau/hero-api:latest
+          # command: ["dot", "minimal-asp-app.dll"]
+
+          imagePullPolicy: Always
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: DB_HOST
+              value: "postgres"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_NAME
+              value: "postgres"
+          ports:
+            - containerPort: 8080 # The API listens on port 8080
+
+---
+# Service for hero-api
+apiVersion: v1
+kind: Service
+metadata:
+  name: hero-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080 # Service port
+      targetPort: 8080 # Container port
+  selector:
+    app: hero-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: heroapi-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: heroapi.drtau.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hero-api
+                port:
+                  number: 8080
