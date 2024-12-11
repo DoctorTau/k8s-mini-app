@@ -40,6 +40,13 @@ spec:
         - name: postgres
           image: postgres:13
           imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
           env:
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -51,6 +58,17 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+          # Health checks
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
@@ -101,6 +119,13 @@ spec:
         - name: pgadmin
           image: dpage/pgadmin4:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+            requests:
+              memory: "128Mi"
+              cpu: "125m"
           env:
             - name: PGADMIN_DEFAULT_EMAIL
               valueFrom:
@@ -149,13 +174,13 @@ spec:
                 port:
                   number: 80
 ---
-# Deployment for hero-api (adjust as needed)
+# Deployment for hero-api
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hero-api
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: hero-api
@@ -167,9 +192,15 @@ spec:
       containers:
         - name: hero-api
           image: drtau/hero-api:latest
-          # command: ["dot", "minimal-asp-app.dll"]
 
           imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
           env:
             - name: DB_PASSWORD
               valueFrom:
@@ -185,7 +216,7 @@ spec:
             - name: DB_NAME
               value: "postgres"
           ports:
-            - containerPort: 8080 # The API listens on port 8080
+            - containerPort: 8080
 
 ---
 # Service for hero-api
@@ -196,11 +227,12 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 8080 # Service port
-      targetPort: 8080 # Container port
+    - port: 8080
+      targetPort: 8080
   selector:
     app: hero-api
 ---
+# Ingress for hero-api
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
